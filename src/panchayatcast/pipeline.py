@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -36,11 +37,14 @@ def run_dir(run_id: str) -> Path:
     return paths().runs / run_id
 
 
-def resolve_model(bundle: ModelBundle, cfg: ModelConfig, model_id: str | None) -> str:
+def resolve_model(available: ModelBundle | Iterable[str], cfg: ModelConfig, model_id: str | None) -> str:
+    """The requested model if available, else the configured default (M2 as a last resort)."""
+    ids = set(available.models) if isinstance(available, ModelBundle) else set(available)
     if model_id:
-        bundle.get(model_id)  # raises if unavailable
+        if model_id not in ids:
+            raise KeyError(f"Model {model_id} not available (have {sorted(ids)})")
         return model_id
-    return cfg.default_model if cfg.default_model in bundle.models else "M2"
+    return cfg.default_model if cfg.default_model in ids else "M2"
 
 
 def validate_forecast(region_id: str, src) -> BlockForecast:
@@ -168,16 +172,18 @@ def emulate_block_forecast(
     issue = pd.Timestamp(issue_date).normalize()
     dates = pd.date_range(issue + pd.Timedelta(days=1), periods=lead_days, freq="D")
     rng = np.random.default_rng(seed)
+    avail = store.fine_dates()
+    if dates[0] < avail[0] or dates[-1] > avail[-1]:
+        raise ValueError(
+            f"No history for {dates[0].date()}..{dates[-1].date()}; this installation has "
+            f"{avail[0].date()}..{avail[-1].date()} (pick an issue date at least {lead_days} days before the end)"
+        )
 
     blk = {}
     for var in MODELLED_VARS:
         d, fine = store.load_fine_active(var, ctx.weights, str(dates[0].date()), str(dates[-1].date()))
         if len(d) != lead_days:
-            avail = store.fine_dates()
-            raise ValueError(
-                f"No data for {dates[0].date()}..{dates[-1].date()}; "
-                f"available {avail[0].date()}..{avail[-1].date()}"
-            )
+            raise ValueError(f"Missing days of {var} history in {dates[0].date()}..{dates[-1].date()}")
         blk[var] = ctx.block_means(fine)
 
     if noise:

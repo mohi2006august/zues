@@ -48,7 +48,7 @@ from ..features.dataset import RegionContext
 from ..geometry import EQUAL_AREA_CRS
 from ..ingest.block_forecast import ForecastValidationError, parse_block_forecast
 from ..ingest.nwp import nwp_block_forecast
-from ..models.registry import ModelBundle, latest_version
+from ..models.registry import available_models, latest_version
 from ..pipeline import emulate_block_forecast, execute_run, resolve_model
 from ..storage.db import Repository
 from ..store import RegionStore, list_regions
@@ -171,7 +171,7 @@ def create_app(repo: Repository | None = None) -> FastAPI:
     @r.get("/regions/{region_id}", tags=["regions"])
     def region(region_id: str):
         ctx = ctx_or_404(region_id)
-        bundle = ModelBundle.load(ctx)
+        version, model_ids = available_models(region_id)
         try:
             d = RegionStore(region_id).fine_dates()
             period = [str(d[0].date()), str(d[-1].date())]
@@ -185,9 +185,9 @@ def create_app(repo: Repository | None = None) -> FastAPI:
             "n_gps": ctx.weights.n_gp,
             "n_active_cells": ctx.n_active,
             "data_period": period,
-            "model_version": bundle.version,
-            "models": sorted(bundle.models),
-            "default_model": resolve_model(bundle, cfg, None),
+            "model_version": version,
+            "models": sorted(model_ids),
+            "default_model": resolve_model(model_ids, cfg, None),
         }
 
     @r.get("/regions/{region_id}/panchayats/locate", tags=["regions"])
@@ -260,18 +260,18 @@ def create_app(repo: Repository | None = None) -> FastAPI:
     def _start_run(region_id: str, src, source: str, model_id: str | None,
                    tasks: BackgroundTasks, repo: Repository) -> dict:
         ctx = ctx_or_404(region_id)
-        bundle = ModelBundle.load(ctx)
+        version, model_ids = available_models(region_id)
         try:
-            model_id = resolve_model(bundle, cfg, model_id)
+            model_id = resolve_model(model_ids, cfg, model_id)
         except KeyError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, str(e.args[0])) from e
         try:
             fc = parse_block_forecast(src, ctx.weights.block_ids)
         except ForecastValidationError as e:
             raise HTTPException(422, {"message": "Invalid block forecast", "errors": e.errors}) from e
         run_id = str(uuid.uuid4())
-        repo.create_run(run_id, region_id, fc.issue_date, source, model_id, bundle.version)
-        tasks.add_task(_safe_execute, run_id, region_id, fc, model_id, repo, bundle.version)
+        repo.create_run(run_id, region_id, fc.issue_date, source, model_id, version)
+        tasks.add_task(_safe_execute, run_id, region_id, fc, model_id, repo, version)
         return {"run_id": run_id, "status": "queued", "issue_date": str(fc.issue_date.date()),
                 "model_id": model_id, "warnings": fc.warnings}
 
@@ -300,6 +300,9 @@ def create_app(repo: Repository | None = None) -> FastAPI:
             df = emulate_block_forecast(region_id, issue_date, seed=seed)
         except ValueError as e:
             raise HTTPException(400, str(e)) from e
+        except FileNotFoundError as e:
+            raise HTTPException(400, "This installation has no daily history for the region, so it "
+                                     "cannot emulate a forecast. Upload one or fetch a live forecast.") from e
         return _start_run(region_id, df, "emulated", model_id, tasks, repo)
 
     @r.post("/regions/{region_id}/runs/fetch", status_code=202, tags=["runs"],

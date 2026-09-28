@@ -7,11 +7,12 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 
-# Data, models, outputs (never commit)
-data/
-models/
-reports/
-outputs/
+# Data, models, outputs (never commit). Anchored to the repo root: an unanchored
+# "models/" also matched the src/panchayatcast/models/ package.
+/data/
+/models/
+/reports/
+/outputs/
 *.nc
 *.tif
 *.tiff

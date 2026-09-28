@@ -69,6 +69,8 @@ pcast train dharwad && pcast evaluate dharwad
 pcast train-unet demo                     # optional deep-learning model (pip install torch)
 ```
 
+**Deploy (Render):** Dashboard → New → Blueprint → this repo (`render.yaml`). The Docker build bakes in the synthetic demo and imports the pre-built real regions in `deploy/bundles/` (made with `pcast export-bundle dharwad --fine-start 2024-06-01 --fine-end 2024-10-31`), so the site serves the Dharwad pilot without re-downloading anything. The free plan's disk is ephemeral: new runs and advisory edits reset on restart.
+
 > The **demo** district is synthetic (generated terrain, boundaries and weather): it proves the pipeline end to end, and its scores are **not** real-world skill. The **Dharwad pilot** uses real LGD panchayat boundaries, real terrain and land cover, and real reanalysis/satellite weather (see [docs/TECHNICAL.md §16](docs/TECHNICAL.md)).
 
 ## Real pilot: Dharwad district, Karnataka

@@ -65,7 +65,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .then((rs) => {
         setRegions(rs);
         const saved = load<string | null>("region", null);
-        const pick = rs.find((r) => r.region_id === saved) ?? rs[0];
+        // First visit: prefer a real district over the synthetic demo.
+        const pick = rs.find((r) => r.region_id === saved) ?? rs.find((r) => r.data_source === "real") ?? rs[0];
         setRegionIdState(pick ? pick.region_id : null);
         if (!rs.length) setError("No regions are built yet. Run `pcast demo` on the server.");
       })

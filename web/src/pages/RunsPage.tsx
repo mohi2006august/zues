@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError, api, downloads } from "../api";
 import { SourceBadge } from "../components/Badges";
 import { Icon, type IconName } from "../components/Icon";
+import { addDays } from "../lib/format";
 import { load, save } from "../lib/storage";
 import { go } from "../router";
 import { useApp } from "../state";
@@ -143,7 +144,11 @@ export default function RunsPage() {
                 </p>
                 <label className="field">
                   <span className="label">Issue date</span>
-                  <input className="input" type="date" value={issue} min={region.data_period?.[0]} max={region.data_period?.[1]} onChange={(e) => setIssue(e.target.value)} />
+                  <input className="input" type="date" value={issue} min={region.data_period?.[0]}
+                    max={region.data_period ? addDays(region.data_period[1], -5) : undefined} onChange={(e) => setIssue(e.target.value)} />
+                  {region.data_period && (
+                    <span className="small faint">History available {region.data_period[0]} to {region.data_period[1]}</span>
+                  )}
                 </label>
                 <button className="btn primary block" disabled={!issue || busy} onClick={() => handle(() => api.emulate(region.region_id, issue))}>
                   {busy ? <span className="spinner" /> : "Create emulated run"}

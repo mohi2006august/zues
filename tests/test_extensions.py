@@ -159,3 +159,44 @@ def test_api_locate_sms_and_fetch(client, forecast_run, monkeypatch):
     r = client.post("/api/v1/regions/tiny/runs/fetch")
     assert r.status_code == 202
     assert client.get(f"/api/v1/runs/{r.json()['run_id']}").json()["source"] == "nwp"
+
+
+# ---- deployment bundles -----------------------------------------------------------
+
+
+def test_bundle_round_trip(forecast_run, repo, project, tmp_path, monkeypatch):
+    import shutil
+
+    from sqlalchemy import func, select
+
+    from panchayatcast.models.registry import available_models, latest_version
+    from panchayatcast.pipeline import emulate_block_forecast
+    from panchayatcast.storage.bundle import export_bundle, import_bundle
+    from panchayatcast.storage.db import Repository, advisories, validation_metrics
+    from panchayatcast.store import RegionStore
+
+    res, _ = forecast_run
+    bundle = tmp_path / "tiny.tar.xz"
+    m = export_bundle("tiny", bundle, repo=repo, fine_start="2023-07-01", fine_end="2023-08-31")
+    assert res.run_id in m["runs"] and m["fine_window"] == ["2023-07-01", "2023-08-31"]
+    version = latest_version("tiny")
+
+    # A fresh installation: empty root and database.
+    root = tmp_path / "server"
+    shutil.copytree(project / "configs", root / "configs")
+    (root / "pyproject.toml").write_text("[project]\nname='t'\n")
+    monkeypatch.setenv("PCAST_ROOT", str(root))
+    fresh = Repository(f"sqlite:///{(root / 'server.db').as_posix()}")
+    import_bundle(bundle, repo=fresh)
+    import_bundle(bundle, repo=fresh)  # re-importing replaces rather than duplicates
+
+    assert RegionStore("tiny").exists()
+    got_version, ids = available_models("tiny")
+    assert got_version == version and {"M0", "M1", "M2", "M3"} <= set(ids)
+    assert fresh.get_run(res.run_id)["status"] == "done"
+    count = lambda t: fresh.engine.connect().execute(select(func.count()).select_from(t)).scalar()  # noqa: E731
+    assert count(advisories) == m["rows"]["advisories"] > 0
+    assert count(validation_metrics) == m["rows"]["validation_metrics"]
+    assert len(emulate_block_forecast("tiny", "2023-07-10")) > 0
+    with pytest.raises(ValueError, match="No history"):
+        emulate_block_forecast("tiny", "2023-03-01")

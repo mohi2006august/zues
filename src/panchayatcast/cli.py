@@ -280,6 +280,33 @@ def runs(region: str | None = None, limit: int = 20):
                    f"{r['source']:9s} {r['model_id']} {r['model_version'] or ''}")
 
 
+@app.command("export-bundle")
+def export_bundle_cmd(
+    region: str,
+    out: Path = typer.Argument(None, help="Output .tar.xz (default: deploy/bundles/<region>.tar.xz)"),
+    fine_start: str | None = typer.Option(None, help="Keep daily history from this date (YYYY-MM-DD)"),
+    fine_end: str | None = typer.Option(None, help="Keep daily history up to this date"),
+    no_fine: bool = typer.Option(False, "--no-fine", help="Leave out the daily history (no emulated runs)"),
+):
+    """Package a built region (latest model, completed runs, validation) for a server."""
+    from .storage.bundle import export_bundle
+
+    out = paths().resolve(out or f"deploy/bundles/{region}.tar.xz")
+    m = export_bundle(region, out, fine_start=fine_start, fine_end=fine_end, include_fine=not no_fine)
+    typer.echo(f"Wrote {out} ({out.stat().st_size / 1e6:.1f} MB): model {m['model_version']}, "
+               f"{len(m['runs'])} runs, history {m['fine_window'] or ('full' if m['fine_included'] else 'none')}")
+
+
+@app.command("import-bundle")
+def import_bundle_cmd(bundles: list[Path] = typer.Argument(..., help="Bundle .tar.xz files")):
+    """Unpack region bundles into this installation (replaces earlier imports of the same runs)."""
+    from .storage.bundle import import_bundle
+
+    for b in bundles:
+        m = import_bundle(paths().resolve(b))
+        typer.echo(f"Imported {m['region_id']} from {b}: model {m['model_version']}, {len(m['runs'])} runs")
+
+
 # ---- downloads --------------------------------------------------------------
 
 
