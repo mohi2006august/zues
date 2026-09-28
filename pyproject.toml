@@ -14,6 +14,10 @@ dependencies = [
   "scipy>=1.11",
   "xarray>=2024.1",
   "netCDF4>=1.6",
+  # cftime 1.6.6's Linux wheels (abi3, Cython 3.3 limited API for 3.11) register the same
+  # shared Cython type as uharfbuzz's (built for 3.10) with a different size, so the two
+  # cannot be imported together ("Shared Cython type ... has the wrong size").
+  "cftime>=1.6,<1.6.6",
   "shapely>=2.0",
   "geopandas>=1.0",
   "pyogrio>=0.7",

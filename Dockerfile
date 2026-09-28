@@ -23,7 +23,8 @@ COPY pyproject.toml README.md ./
 COPY src/ src/
 RUN pip install --no-cache-dir ".[postgres]"
 # Fail fast (with a clear message) if a native library is still missing.
-RUN python -c "import rasterio, pyogrio, netCDF4, lightgbm, geopandas, uharfbuzz; print('native libs OK, GDAL', rasterio.__gdal_version__)"
+# Also catches binary clashes between Cython extensions (see the cftime pin in pyproject.toml).
+RUN python -c "import rasterio, pyogrio, netCDF4, cftime, lightgbm, geopandas, uharfbuzz; print('native libs OK, GDAL', rasterio.__gdal_version__)"
 COPY configs/ configs/
 COPY --from=web /web/dist web/dist
 # Bake data into the image so hosts with ephemeral disks (Render) serve it from the first
