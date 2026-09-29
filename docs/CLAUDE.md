@@ -56,6 +56,8 @@ pcast fetch <region>           # live NWP forecast (Open-Meteo) -> run
 pcast watch <region> --days tue,fri --at 06:00   # keep fetching on AAS days
 pcast serve                    # dashboard at http://127.0.0.1:8000, API docs at /docs
 pcast regions | pcast runs     # list regions / runs
+pcast export-bundle dharwad --fine-start 2024-06-01 --fine-end 2024-10-31   # -> deploy/bundles/dharwad.tar.xz
+pcast import-bundle deploy/bundles/*.tar.xz   # load pre-built regions (the Docker build does this)
 pcast download static|chirps|era5land|era5cloud <config> ...
 pcast build-region configs/region.<id>.yaml
 pytest -q                      # tests (a few minutes; builds a tiny synthetic region in a temp dir)

@@ -282,7 +282,8 @@ Advisory JSON includes `text` (in the requested `lang`, English fallback), `mach
 ├── README.md
 ├── pyproject.toml            # package + deps + ruff/pytest config; CLI entry point `pcast`
 ├── docs/                     # BRAIN, CLAUDE, PRD, DESIGN, SYSTEM_ARCHITECTURE, TECHNICAL
-├── Dockerfile  docker-compose.yml  .dockerignore
+├── Dockerfile  docker-compose.yml  .dockerignore  render.yaml
+├── deploy/bundles/           # pre-built real regions (`pcast export-bundle`), imported by the Docker build
 ├── configs/
 │   ├── region.demo.yaml      # synthetic demo region
 │   ├── region.dharwad.yaml   # REAL pilot: Dharwad district, Karnataka
@@ -379,7 +380,8 @@ Purpose: run and test the full pipeline before real data arrives, and show that 
 | SQLite storage; CSV/GeoJSON/GeoTIFF/PDF (en/hi/kn)/SMS exports | ✅ Done, tested |
 | REST API | ✅ Done, tested |
 | Frontend: map, compare, advisories, validation, runs, farmer view (en/hi/kn) | ✅ Done, checked in the browser |
-| Docker + PostgreSQL | ⚠️ Dockerfile/compose written, **untested** (no Docker on the dev machine) |
+| Docker image | ✅ Builds and runs on Render (free plan, https://panchayatcast-cnvx.onrender.com) with the demo and the Dharwad bundle baked in |
+| PostgreSQL (docker-compose) | ⚠️ Written, **untested** (no Docker on the dev machine) |
 | Real IMD block-forecast archive, station data, NDVI feature | ⏳ Needs data access |
 
 ---
